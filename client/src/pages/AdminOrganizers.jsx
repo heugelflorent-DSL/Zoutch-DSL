@@ -10,6 +10,7 @@ export default function AdminOrganizers() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null); // { id, username, password }
 
   function reload() {
     api
@@ -50,6 +51,25 @@ export default function AdminOrganizers() {
     }
   }
 
+  async function saveEdit(o) {
+    setError('');
+    setSuccess('');
+    const data = {};
+    if (editing.username.trim() && editing.username.trim() !== o.username) data.username = editing.username.trim();
+    if (editing.password) data.password = editing.password;
+    if (!Object.keys(data).length) { setEditing(null); return; }
+    try {
+      await api.updateOrganizer(o.id, data);
+      setSuccess(
+        `"${o.username}" mis à jour${data.password ? ' (nouveau mot de passe enregistré)' : ''}.`
+      );
+      setEditing(null);
+      reload();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div>
       <Link to="/admin" className="back-link">← Retour au tableau de bord</Link>
@@ -57,11 +77,36 @@ export default function AdminOrganizers() {
 
       <div className="admin-list">
         {organizers.map((o) => (
-          <div className="admin-row" key={o.id}>
-            <span>{o.username}</span>
-            <span className="muted">depuis le {new Date(o.created_at).toLocaleDateString('fr-FR')}</span>
-            {me && o.id !== me.id && (
-              <button type="button" onClick={() => remove(o)}>Supprimer</button>
+          <div className="admin-row" key={o.id} style={editing?.id === o.id ? { flexWrap: 'wrap', gap: 8 } : undefined}>
+            {editing?.id === o.id ? (
+              <>
+                <input
+                  aria-label="Identifiant"
+                  value={editing.username}
+                  onChange={(e) => setEditing({ ...editing, username: e.target.value })}
+                />
+                <input
+                  aria-label="Nouveau mot de passe"
+                  type="text"
+                  placeholder="Nouveau mot de passe (laisser vide = inchangé)"
+                  value={editing.password}
+                  minLength={4}
+                  onChange={(e) => setEditing({ ...editing, password: e.target.value })}
+                />
+                <button type="button" onClick={() => saveEdit(o)}>Enregistrer</button>
+                <button type="button" onClick={() => setEditing(null)}>Annuler</button>
+              </>
+            ) : (
+              <>
+                <span>{o.username}{me && o.id === me.id ? ' (moi)' : ''}</span>
+                <span className="muted">depuis le {new Date(o.created_at).toLocaleDateString('fr-FR')}</span>
+                <button type="button" onClick={() => setEditing({ id: o.id, username: o.username, password: '' })}>
+                  Modifier / mot de passe
+                </button>
+                {me && o.id !== me.id && (
+                  <button type="button" onClick={() => remove(o)}>Supprimer</button>
+                )}
+              </>
             )}
           </div>
         ))}
