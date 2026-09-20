@@ -274,6 +274,26 @@ export default async (req, context) => {
 
     // ---------- SIGNUPS ----------
     if (parts[0] === "signups") {
+      if (parts.length === 3 && parts[2] === "all" && method === "GET") {
+        // Toutes les inscriptions de la même personne (même email + même nom), via un code secret valide.
+        if (!UUID_RE.test(parts[1])) return err(404, "Inscription introuvable");
+        const [me] = await db.sql`SELECT * FROM signups WHERE cancel_token = ${parts[1]}::uuid`;
+        if (!me) return err(404, "Inscription introuvable");
+        const rows = await db.sql`
+          SELECT s.cancel_token, s.first_name, s.last_name, s.email, s.quantity, s.waitlist, s.created_at,
+                 m.id AS mission_id, m.title, m.date, m.start_time, m.end_time, m.unit, m.kind, m.slots,
+                 e.id AS event_id, e.name AS event_name
+          FROM signups s
+          JOIN missions m ON m.id = s.mission_id
+          JOIN events e ON e.id = m.event_id
+          WHERE lower(s.email) = lower(${me.email})
+            AND lower(s.first_name) = lower(${me.first_name})
+            AND lower(s.last_name) = lower(${me.last_name})
+            AND e.status = 'active'
+          ORDER BY (s.cancel_token = ${parts[1]}::uuid) DESC, e.id, m.date NULLS LAST, m.start_time NULLS LAST
+        `;
+        return json(rows);
+      }
       if (parts.length === 2 && method === "GET") {
         // Lecture publique via le code secret d'annulation uniquement (jamais par numéro),
         // et sans renvoyer l'email.

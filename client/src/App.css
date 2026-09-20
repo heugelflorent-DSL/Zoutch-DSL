@@ -237,3 +237,8 @@
 .presence-list .mission-grid { grid-template-columns: 1fr; }
 .signup-edit { display: flex; flex-wrap: wrap; gap: 0.4rem; width: 100%; }
 .signup-edit input { flex: 1 1 130px; min-width: 0; }
+.button-link {
+  display: inline-block; text-decoration: none; font-size: 0.9rem; font-weight: 600; color: var(--primary-dark);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.5rem 0.9rem;
+}
+.button-link:hover { background: var(--primary-tint); }
