@@ -37,13 +37,33 @@ export default function PublicHome() {
 
   return (
     <div>
-      <h1 className="section-title">Événements ouverts aux bénévoles</h1>
-      <div className="card-list">
+      <div className="hero-header">
+        <img src={logo} alt="Dauphins Saint-Louis" />
+        <h1>Rejoignez l'équipe des bénévoles</h1>
+        <p className="hero-desc">
+          Chaque événement du club vit grâce à vous. Choisissez celui qui vous tente, puis
+          inscrivez-vous sur les tâches qui vous conviennent, en quelques secondes.
+        </p>
+      </div>
+
+      <h2 className="section-title">{events.length} événements vous attendent</h2>
+      <div className="event-grid">
         {events.map((ev) => (
-          <Link to={`/evenements/${ev.id}`} className="card" key={ev.id}>
-            <h2>{ev.name}</h2>
-            {(ev.date_start || ev.date_end) && <p className="muted">{formatDateRange(ev.date_start, ev.date_end)}</p>}
-            {ev.description && <p>{ev.description}</p>}
+          <Link to={`/evenements/${ev.id}`} className="event-tile" key={ev.id}>
+            {(ev.date_start || ev.date_end) && (
+              <span className="date-pill">📅 {formatDateRange(ev.date_start, ev.date_end)}</span>
+            )}
+            <h3>{ev.name}</h3>
+            {ev.description && <p className="event-desc">{ev.description}</p>}
+            {ev.mission_count > 0 && (
+              <p className="event-stats">
+                {ev.open_count > 0
+                  ? <><strong>{ev.open_count}</strong> tâche{ev.open_count > 1 ? 's' : ''} encore à pourvoir</>
+                  : <>Toutes les tâches sont pourvues — liste d'attente ouverte</>}
+                {ev.volunteer_count > 0 && <> · {ev.volunteer_count} bénévole{ev.volunteer_count > 1 ? 's' : ''} déjà inscrit{ev.volunteer_count > 1 ? 's' : ''}</>}
+              </p>
+            )}
+            <span className="event-cta">Voir les tâches et m'inscrire →</span>
           </Link>
         ))}
       </div>

@@ -214,3 +214,22 @@
 @media (max-width: 560px) { .org-name { flex: 1 1 calc(100% - 50px); } }
 .admin-header > div:first-child { flex: 1 1 340px; min-width: 340px; }
 @media (max-width: 560px) { .admin-header > div:first-child { min-width: 0; flex-basis: 100%; } }
+
+/* ===== Accueil bénévoles : plusieurs événements ===== */
+.event-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1rem; }
+@media (min-width: 640px) { .event-grid { grid-template-columns: repeat(2, 1fr); } }
+.event-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; text-decoration: none; color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-top: 5px solid var(--primary);
+  border-radius: 18px; padding: 1.25rem; box-shadow: var(--shadow-sm); transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.event-tile:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.event-tile h3 { margin: 0.25rem 0 0; font-size: 1.3rem; color: var(--primary-dark); }
+.event-desc { margin: 0; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
+.event-stats { margin: 0; font-size: 0.88rem; color: var(--text); background: var(--success-tint); border-radius: 10px; padding: 0.45rem 0.7rem; }
+.event-stats strong { color: var(--success); }
+.event-cta {
+  margin-top: auto; padding-top: 0.5rem; align-self: stretch; text-align: center; font-weight: 700; color: #fff;
+  background: var(--primary); border-radius: 12px; padding: 0.7rem 1rem;
+}
+.event-tile:hover .event-cta { background: var(--primary-dark); }
