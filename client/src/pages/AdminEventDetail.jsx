@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import ShareBlock from '../components/ShareBlock';
 import { api } from '../api/client';
 import { formatDateRange, formatMissionWhen } from '../utils/dates';
-import { badgeLabel, missionUnit, formatQty, missionCategory } from '../utils/missions';
+import { eventLink, badgeLabel, missionUnit, formatQty, missionCategory } from '../utils/missions';
 import MissionForm from '../components/MissionForm';
 
 function MissionSignups({ mission, onChanged }) {
@@ -87,6 +88,7 @@ export default function AdminEventDetail() {
   const { id } = useParams();
   const location = useLocation();
   const [event, setEvent] = useState(null);
+  const [showShare, setShowShare] = useState(false);
   const [error, setError] = useState('');
   const [showMissionForm, setShowMissionForm] = useState(Boolean(location.state?.openTaskForm));
   const [expandedMissionId, setExpandedMissionId] = useState(null);
@@ -166,9 +168,13 @@ export default function AdminEventDetail() {
         <button onClick={() => setShowMissionForm((s) => !s)}>
           {showMissionForm ? 'Annuler' : '+ Ajouter une tâche'}
         </button>
+        <button className="secondary" onClick={() => setShowShare((s) => !s)}>
+          {showShare ? 'Masquer le lien' : '🔗 Partager'}
+        </button>
         <button className="secondary" onClick={exportExcel}>📊 Exporter en Excel</button>
         <button className="secondary" onClick={() => setPrintMode(true)}>🖨️ Planning imprimable</button>
       </div>
+      {showShare && <ShareBlock url={eventLink(event.id)} />}
       {exportStatus && <p className="muted">{exportStatus}</p>}
 
       {showMissionForm && (

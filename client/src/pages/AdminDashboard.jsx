@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import QRCode from 'qrcode';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { formatDateRange } from '../utils/dates';
-import { shareLink } from '../utils/missions';
+import { eventLink } from '../utils/missions';
+import ShareBlock from '../components/ShareBlock';
 
 function NewEventForm({ onCreated }) {
   const [form, setForm] = useState({ name: '', date_start: '', date_end: '', description: '' });
@@ -53,45 +53,13 @@ function NewEventForm({ onCreated }) {
   );
 }
 
-function ShareBlock() {
-  const canvasRef = useRef(null);
-  const [copyStatus, setCopyStatus] = useState('');
-
-  useEffect(() => {
-    if (canvasRef.current) {
-      QRCode.toCanvas(canvasRef.current, shareLink(), { width: 160, margin: 1 }, () => {});
-    }
-  }, []);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(shareLink());
-      setCopyStatus('Lien copié !');
-    } catch {
-      setCopyStatus('Copie impossible ici — sélectionne et copie le texte manuellement.');
-    }
-  }
-
-  return (
-    <div className="form-card">
-      <p className="muted" style={{ marginTop: 0 }}>Ce lien ouvre directement la page bénévoles :</p>
-      <div className="inline-form" style={{ marginTop: 0 }}>
-        <input readOnly value={shareLink()} style={{ flex: '1 1 220px' }} />
-        <button onClick={copy}>Copier</button>
-      </div>
-      {copyStatus && <p className="muted" style={{ margin: '0.4rem 0 0' }}>{copyStatus}</p>}
-      <div style={{ marginTop: '0.75rem' }}><canvas ref={canvasRef} /></div>
-    </div>
-  );
-}
-
 export default function AdminDashboard() {
   const { organizer, logout } = useAuth();
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
+  const [shareId, setShareId] = useState(null);
 
   function reload() {
     api.listEvents('all').then(setEvents).catch((e) => setError(e.message));
@@ -159,11 +127,7 @@ export default function AdminDashboard() {
         <button onClick={() => setShowForm((s) => !s)}>
           {showForm ? 'Annuler' : '+ Nouvel événement'}
         </button>
-        <button className="secondary" onClick={() => setShareOpen((s) => !s)}>
-          {shareOpen ? 'Masquer le lien' : '🔗 Partager la page bénévoles'}
-        </button>
       </div>
-      {shareOpen && <ShareBlock />}
       {showForm && (
         <NewEventForm onCreated={() => { setShowForm(false); reload(); }} />
       )}
@@ -184,9 +148,13 @@ export default function AdminDashboard() {
               </button>
               <button className="secondary" onClick={() => navigate(`/admin/evenements/${ev.id}`)}>Voir les tâches</button>
               <button className="secondary" onClick={() => toggleArchive(ev)}>Archiver</button>
+              <button className="secondary" onClick={() => setShareId(shareId === ev.id ? null : ev.id)}>
+                {shareId === ev.id ? 'Masquer le lien' : '🔗 Partager'}
+              </button>
               <button className="secondary" onClick={() => duplicate(ev)}>Dupliquer</button>
               <button className="danger push-right" onClick={() => remove(ev)}>Supprimer</button>
             </div>
+            {shareId === ev.id && <ShareBlock url={eventLink(ev.id)} />}
           </div>
         ))}
         {active.length === 0 && <p className="empty-box">Aucun événement actif pour le moment.</p>}
@@ -204,9 +172,13 @@ export default function AdminDashboard() {
             </div>
             <div className="row-actions">
               <button className="secondary" onClick={() => toggleArchive(ev)}>Désarchiver</button>
+              <button className="secondary" onClick={() => setShareId(shareId === ev.id ? null : ev.id)}>
+                {shareId === ev.id ? 'Masquer le lien' : '🔗 Partager'}
+              </button>
               <button className="secondary" onClick={() => duplicate(ev)}>Dupliquer</button>
               <button className="danger push-right" onClick={() => remove(ev)}>Supprimer</button>
             </div>
+            {shareId === ev.id && <ShareBlock url={eventLink(ev.id)} />}
           </div>
         ))}
         {archived.length === 0 && <p className="empty-box">Aucun événement archivé.</p>}
