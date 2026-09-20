@@ -101,7 +101,7 @@ function MissionCard({ mission, event, onChanged }) {
           ✓ Inscription confirmée !
           <div className="actions" style={{ marginTop: '0.5rem' }}>
             {mission.date && <button className="secondary" onClick={() => downloadIcs(mission, event)}>📅 Ajouter au calendrier</button>}
-            <button className="secondary" onClick={() => copyLink(confirmed.id)}>🔗 Lien pour annuler</button>
+            <button className="secondary" onClick={() => copyLink(confirmed.cancel_token)}>🔗 Lien pour annuler</button>
             <button className="secondary" onClick={() => setConfirmed(null)}>Fermer</button>
           </div>
           {copyStatus && <p className="muted" style={{ margin: '0.4rem 0 0' }}>{copyStatus}</p>}

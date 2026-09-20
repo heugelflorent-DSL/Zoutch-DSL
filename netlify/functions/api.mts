@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 
 const JWT_SECRET = Netlify.env.get("JWT_SECRET") || "dev-secret-change-me";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -238,7 +239,10 @@ export default async (req, context) => {
     // ---------- SIGNUPS ----------
     if (parts[0] === "signups") {
       if (parts.length === 2 && method === "GET") {
-        const [row] = await db.sql`SELECT * FROM signups WHERE id = ${parts[1]}`;
+        // Lecture publique via le code secret d'annulation uniquement (jamais par numéro),
+        // et sans renvoyer l'email.
+        if (!UUID_RE.test(parts[1])) return err(404, "Inscription introuvable");
+        const [row] = await db.sql`SELECT mission_id, first_name, last_name FROM signups WHERE cancel_token = ${parts[1]}::uuid`;
         if (!row) return err(404, "Inscription introuvable");
         return json(row);
       }
@@ -272,8 +276,14 @@ export default async (req, context) => {
         return json(row);
       }
       if (parts.length === 2 && method === "DELETE") {
-        // Suppression publique autorisée (auto-désinscription via lien) ou organisateur
-        const [row] = await db.sql`DELETE FROM signups WHERE id = ${parts[1]} RETURNING id`;
+        // Organisateur connecté : suppression par numéro. Public : uniquement avec le code secret du lien d'annulation.
+        const key = parts[1];
+        let row;
+        if (getAuthOrganizer(req) && /^\d+$/.test(key)) {
+          [row] = await db.sql`DELETE FROM signups WHERE id = ${Number(key)} RETURNING id`;
+        } else if (UUID_RE.test(key)) {
+          [row] = await db.sql`DELETE FROM signups WHERE cancel_token = ${key}::uuid RETURNING id`;
+        }
         if (!row) return err(404, "Inscription introuvable");
         return new Response(null, { status: 204 });
       }
