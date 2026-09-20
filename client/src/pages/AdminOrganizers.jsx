@@ -74,10 +74,11 @@ export default function AdminOrganizers() {
     <div>
       <Link to="/admin" className="back-link">← Retour au tableau de bord</Link>
       <h1>Organisateurs</h1>
+      <p className="muted admin-sub">Les personnes qui peuvent créer et gérer les événements.</p>
 
       <div className="admin-list">
         {organizers.map((o) => (
-          <div className="admin-row" key={o.id} style={editing?.id === o.id ? { flexWrap: 'wrap', gap: 8 } : undefined}>
+          <div className="admin-row org-row" key={o.id}>
             {editing?.id === o.id ? (
               <>
                 <input
@@ -94,17 +95,18 @@ export default function AdminOrganizers() {
                   onChange={(e) => setEditing({ ...editing, password: e.target.value })}
                 />
                 <button type="button" onClick={() => saveEdit(o)}>Enregistrer</button>
-                <button type="button" onClick={() => setEditing(null)}>Annuler</button>
+                <button type="button" className="secondary" onClick={() => setEditing(null)}>Annuler</button>
               </>
             ) : (
               <>
-                <span>{o.username}{me && o.id === me.id ? ' (moi)' : ''}</span>
-                <span className="muted">depuis le {new Date(o.created_at).toLocaleDateString('fr-FR')}</span>
-                <button type="button" onClick={() => setEditing({ id: o.id, username: o.username, password: '' })}>
+                <span className="avatar">{o.username.charAt(0).toUpperCase()}</span>
+                <span className="org-name">{o.username}{me && o.id === me.id && <span className="badge">Moi</span>}</span>
+                <span className="muted org-date">depuis le {new Date(o.created_at).toLocaleDateString('fr-FR')}</span>
+                <button type="button" className="secondary" onClick={() => setEditing({ id: o.id, username: o.username, password: '' })}>
                   Modifier / mot de passe
                 </button>
                 {me && o.id !== me.id && (
-                  <button type="button" onClick={() => remove(o)}>Supprimer</button>
+                  <button type="button" className="danger" onClick={() => remove(o)}>Supprimer</button>
                 )}
               </>
             )}

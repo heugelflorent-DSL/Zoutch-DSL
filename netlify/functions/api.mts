@@ -145,7 +145,17 @@ export default async (req, context) => {
         if (status === "all") rows = await db.sql`SELECT * FROM events ORDER BY status ASC, date_start IS NULL, date_start DESC`;
         else if (status === "archived") rows = await db.sql`SELECT * FROM events WHERE status = 'archived' ORDER BY date_start DESC`;
         else rows = await db.sql`SELECT * FROM events WHERE status = 'active' ORDER BY date_start IS NULL, date_start ASC`;
-        return json(rows);
+        const withStats = [];
+        for (const ev of rows) {
+          const ms = await missionsWithCounts(db, ev.id);
+          withStats.push({
+            ...ev,
+            mission_count: ms.length,
+            open_count: ms.filter((m) => m.remaining > 0).length,
+            volunteer_count: new Set(ms.flatMap((m) => m.signups.filter((x) => !x.waitlist).map((x) => x.id))).size,
+          });
+        }
+        return json(withStats);
       }
       if (parts.length === 2 && method === "GET") {
         const [event] = await db.sql`SELECT * FROM events WHERE id = ${parts[1]}`;

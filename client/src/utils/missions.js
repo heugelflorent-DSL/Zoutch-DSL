@@ -69,6 +69,6 @@ export function cancelLink(signupId) {
   return `${location.origin}${location.pathname}?cancel=${signupId}`;
 }
 
-export function shareLink() {
-  return `${location.origin}${location.pathname}`;
+export function eventLink(eventId) {
+  return `${location.origin}/evenements/${eventId}`;
 }
