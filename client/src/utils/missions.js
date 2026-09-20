@@ -40,7 +40,7 @@ export function buildIcs(mission, event) {
     end = `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}T${pad2(dt.getHours())}${pad2(dt.getMinutes())}00`;
   }
   const lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Zoutch Benevoles//FR',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Zoutch Dauphins de Saint-Louis//FR',
     'BEGIN:VEVENT',
     `UID:${mission.id}@zoutch-dsl`,
     `SUMMARY:${(mission.title || '').replace(/\n/g, ' ')} — ${(event?.name || '').replace(/\n/g, ' ')}`,

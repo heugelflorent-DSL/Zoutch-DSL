@@ -103,6 +103,27 @@ export default async (req, context) => {
         const [row] = await db.sql`INSERT INTO organizers (username, password_hash) VALUES (${username}, ${hash}) RETURNING id, username`;
         return json(row, 201);
       }
+      if (parts[1] === "organizers" && parts[2] && method === "PUT") {
+        const id = Number(parts[2]);
+        if (!Number.isInteger(id)) return err(400, "Identifiant invalide");
+        const username = typeof body.username === "string" ? body.username.trim() : "";
+        const password = typeof body.password === "string" ? body.password : "";
+        if (!username && !password) return err(400, "Rien à modifier");
+        if (password && password.length < 4) return err(400, "Le mot de passe doit faire au moins 4 caractères");
+        const [current] = await db.sql`SELECT id, username FROM organizers WHERE id = ${id}`;
+        if (!current) return err(404, "Organisateur introuvable");
+        if (username && username !== current.username) {
+          const [dup] = await db.sql`SELECT id FROM organizers WHERE username = ${username} AND id <> ${id}`;
+          if (dup) return err(409, "Cet identifiant existe déjà");
+          await db.sql`UPDATE organizers SET username = ${username} WHERE id = ${id}`;
+        }
+        if (password) {
+          const hash = bcrypt.hashSync(password, 10);
+          await db.sql`UPDATE organizers SET password_hash = ${hash} WHERE id = ${id}`;
+        }
+        const [row] = await db.sql`SELECT id, username, created_at FROM organizers WHERE id = ${id}`;
+        return json(row);
+      }
       if (parts[1] === "organizers" && parts[2] && method === "DELETE") {
         const id = Number(parts[2]);
         if (!Number.isInteger(id)) return err(400, "Identifiant invalide");

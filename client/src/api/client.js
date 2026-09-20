@@ -44,6 +44,8 @@ export const api = {
   listOrganizers: () => request('/auth/organizers', { auth: true }),
   createOrganizer: (username, password) =>
     request('/auth/organizers', { method: 'POST', body: { username, password }, auth: true }),
+  updateOrganizer: (id, data) =>
+    request(`/auth/organizers/${id}`, { method: 'PUT', body: data, auth: true }),
   deleteOrganizer: (id) => request(`/auth/organizers/${id}`, { method: 'DELETE', auth: true }),
 
   listEvents: (status) => request(`/events${status ? `?status=${status}` : ''}`),

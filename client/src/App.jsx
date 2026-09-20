@@ -70,7 +70,7 @@ export default function App() {
         <header className="topbar">
           <Link to="/" className="brand">
             <img src={logo} alt="Dauphins Saint-Louis" />
-            <span>Zoutch Bénévoles</span>
+            <span>Zoutch Dauphins de Saint-Louis</span>
           </Link>
           <Link to="/admin" className="admin-link">Espace organisateurs</Link>
         </header>
