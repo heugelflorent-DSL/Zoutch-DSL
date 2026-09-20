@@ -59,7 +59,7 @@ export default function AdminOrganizers() {
         {organizers.map((o) => (
           <div className="admin-row" key={o.id}>
             <span>{o.username}</span>
-            <span className="muted">depuis le {o.created_at}</span>
+            <span className="muted">depuis le {new Date(o.created_at).toLocaleDateString('fr-FR')}</span>
             {me && o.id !== me.id && (
               <button type="button" onClick={() => remove(o)}>Supprimer</button>
             )}
