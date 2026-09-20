@@ -235,3 +235,5 @@
 .event-tile:hover .event-cta { background: var(--primary-dark); }
 .mission-card.is-presence { border-left: 4px solid var(--accent-light); background: linear-gradient(180deg, var(--primary-tint) 0%, var(--surface) 60%); }
 .presence-list .mission-grid { grid-template-columns: 1fr; }
+.signup-edit { display: flex; flex-wrap: wrap; gap: 0.4rem; width: 100%; }
+.signup-edit input { flex: 1 1 130px; min-width: 0; }

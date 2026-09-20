@@ -13,6 +13,34 @@ function MissionSignups({ mission, onChanged }) {
   const unit = missionUnit(mission);
   const hasRoom = mission.remaining > 0;
   const [error, setError] = useState('');
+  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState(null);
+
+  function startEdit(s) {
+    setEditId(s.id);
+    setForm({ first_name: s.first_name, last_name: s.last_name, email: s.email, quantity: s.quantity ?? 1 });
+  }
+  async function saveEdit(e) {
+    e.preventDefault();
+    setError('');
+    try {
+      await api.updateSignup(editId, { ...form, quantity: Number(form.quantity) });
+      setEditId(null);
+      onChanged();
+    } catch (err) { setError(err.message); }
+  }
+  const editForm = (
+    <form className="signup-edit" onSubmit={saveEdit}>
+      <input required placeholder="Prénom" value={form?.first_name || ''} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+      <input required placeholder="Nom" value={form?.last_name || ''} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+      <input required type="email" placeholder="Email" value={form?.email || ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      {(unit !== 'personne(s)' || isPresence(mission)) && (
+        <input required type="number" min="0.1" step="0.1" title={`Quantité (${unit})`} value={form?.quantity ?? 1} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+      )}
+      <button type="submit">Enregistrer</button>
+      <button type="button" className="secondary" onClick={() => setEditId(null)}>Annuler</button>
+    </form>
+  );
 
   async function remove(id) {
     try { await api.deleteSignup(id); onChanged(); } catch (e) { setError(e.message); }
@@ -27,8 +55,15 @@ function MissionSignups({ mission, onChanged }) {
       {confirmed.length === 0 && <p className="empty">Aucun inscrit pour l'instant.</p>}
       {confirmed.map((s) => (
         <div className="signup-row" key={s.id}>
-          <span>{s.first_name} {s.last_name} — {s.email}{unit !== 'personne(s)' || isPresence(mission) ? ` · ${formatQty(s.quantity || 1)} ${unit}` : ''}</span>
-          <button className="danger" onClick={() => remove(s.id)}>Retirer</button>
+          {editId === s.id ? editForm : (
+            <>
+              <span>{s.first_name} {s.last_name} — {s.email}{unit !== 'personne(s)' || isPresence(mission) ? ` · ${formatQty(s.quantity || 1)} ${unit}` : ''}</span>
+              <span style={{ display: 'flex', gap: '0.4rem' }}>
+                <button className="secondary" onClick={() => startEdit(s)}>Modifier</button>
+                <button className="danger" onClick={() => remove(s.id)}>Retirer</button>
+              </span>
+            </>
+          )}
         </div>
       ))}
       {waitlist.length > 0 && (
@@ -36,11 +71,16 @@ function MissionSignups({ mission, onChanged }) {
           <p className="muted" style={{ fontWeight: 600, marginTop: '0.6rem' }}>Liste d'attente</p>
           {waitlist.map((s) => (
             <div className="signup-row" key={s.id}>
-              <span>{s.first_name} {s.last_name} — {s.email}</span>
-              <span style={{ display: 'flex', gap: '0.4rem' }}>
-                {hasRoom && <button onClick={() => promote(s.id)}>Promouvoir</button>}
-                <button className="danger" onClick={() => remove(s.id)}>Retirer</button>
-              </span>
+              {editId === s.id ? editForm : (
+                <>
+                  <span>{s.first_name} {s.last_name} — {s.email}</span>
+                  <span style={{ display: 'flex', gap: '0.4rem' }}>
+                    {hasRoom && <button onClick={() => promote(s.id)}>Promouvoir</button>}
+                    <button className="secondary" onClick={() => startEdit(s)}>Modifier</button>
+                    <button className="danger" onClick={() => remove(s.id)}>Retirer</button>
+                  </span>
+                </>
+              )}
             </div>
           ))}
         </>

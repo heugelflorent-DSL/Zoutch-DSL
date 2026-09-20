@@ -70,7 +70,7 @@ function MissionCard({ mission, event, onChanged }) {
   async function copyLink(signupId) {
     try {
       await navigator.clipboard.writeText(cancelLink(signupId));
-      setCopyStatus("Lien copié — garde-le pour annuler ton inscription plus tard.");
+      setCopyStatus("Lien copié — garde-le pour modifier ou annuler ton inscription plus tard.");
     } catch {
       setCopyStatus(cancelLink(signupId));
     }
@@ -110,7 +110,7 @@ function MissionCard({ mission, event, onChanged }) {
           {presence ? '✓ Présence enregistrée, merci !' : '✓ Inscription confirmée !'}
           <div className="actions" style={{ marginTop: '0.5rem' }}>
             {mission.date && <button className="secondary" onClick={() => downloadIcs(mission, event)}>📅 Ajouter au calendrier</button>}
-            <button className="secondary" onClick={() => copyLink(confirmed.cancel_token)}>🔗 Lien pour annuler</button>
+            <button className="secondary" onClick={() => copyLink(confirmed.cancel_token)}>🔗 Lien pour modifier / annuler</button>
             <button className="secondary" onClick={() => setConfirmed(null)}>Fermer</button>
           </div>
           {copyStatus && <p className="muted" style={{ margin: '0.4rem 0 0' }}>{copyStatus}</p>}
