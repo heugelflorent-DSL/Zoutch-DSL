@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { formatDateRange, formatMissionWhenPublic } from '../utils/dates';
-import { badgeLabel, missionCategory, missionUnit, formatQty, downloadIcs, cancelLink } from '../utils/missions';
+import { isPresence, badgeLabel, missionCategory, missionUnit, formatQty, downloadIcs, cancelLink } from '../utils/missions';
 import logo from '../assets/logo-dauphins-sl.png';
 
 function SignupForm({ mission, waitlistMode, onDone }) {
@@ -10,6 +10,7 @@ function SignupForm({ mission, waitlistMode, onDone }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const unit = missionUnit(mission);
+  const presence = isPresence(mission);
 
   async function submit(e) {
     e.preventDefault();
@@ -23,7 +24,11 @@ function SignupForm({ mission, waitlistMode, onDone }) {
         email: form.email,
         waitlist: waitlistMode,
       };
-      if (!waitlistMode && unit !== 'personne(s)') {
+      if (presence) {
+        const q = Math.floor(Number(form.quantity || 1));
+        if (!q || q <= 0) throw new Error('Merci d\'indiquer le nombre de personnes');
+        payload.quantity = q;
+      } else if (!waitlistMode && unit !== 'personne(s)') {
         const q = Number(form.quantity);
         if (!q || q <= 0) throw new Error('Merci d\'indiquer une quantité valide');
         payload.quantity = q;
@@ -41,10 +46,13 @@ function SignupForm({ mission, waitlistMode, onDone }) {
       <input placeholder="Prénom" required value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
       <input placeholder="Nom" required value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
       <input placeholder="Email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-      {!waitlistMode && unit !== 'personne(s)' && (
+      {presence && (
+        <input placeholder="Nb de personnes" title="Nombre de personnes, vous compris" aria-label="Nombre de personnes, vous compris" type="number" min="1" step="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+      )}
+      {!presence && !waitlistMode && unit !== 'personne(s)' && (
         <input placeholder={`Quantité (${unit})`} type="number" min="0.1" step="0.1" required value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
       )}
-      <button type="submit" disabled={saving}>{waitlistMode ? "Rejoindre la liste d'attente" : "Je m'inscris"}</button>
+      <button type="submit" disabled={saving}>{waitlistMode ? "Rejoindre la liste d'attente" : presence ? 'Je serai présent(e)' : "Je m'inscris"}</button>
       {error && <p className="error">{error}</p>}
     </form>
   );
@@ -55,6 +63,7 @@ function MissionCard({ mission, event, onChanged }) {
   const [confirmed, setConfirmed] = useState(null);
   const [copyStatus, setCopyStatus] = useState('');
   const unit = missionUnit(mission);
+  const presence = isPresence(mission);
   const confirmedSignups = (mission.signups || []).filter((s) => !s.waitlist);
   const waitlistSignups = (mission.signups || []).filter((s) => s.waitlist);
 
@@ -68,10 +77,10 @@ function MissionCard({ mission, event, onChanged }) {
   }
 
   return (
-    <div className={`mission-card ${mission.remaining > 0 ? 'is-pending' : 'is-complete'}`}>
+    <div className={`mission-card ${presence ? 'is-presence' : mission.remaining > 0 ? 'is-pending' : 'is-complete'}`}>
       <div className="mission-header">
         <h3>{mission.title}</h3>
-        <span className={`badge ${mission.remaining > 0 ? 'badge-pending' : 'badge-complete'}`}>{badgeLabel(mission)}</span>
+        <span className={`badge ${presence ? '' : mission.remaining > 0 ? 'badge-pending' : 'badge-complete'}`}>{badgeLabel(mission)}</span>
       </div>
       {formatMissionWhenPublic(mission) && <p className="muted">{formatMissionWhenPublic(mission)}</p>}
       {mission.description && <p>{mission.description}</p>}
@@ -80,7 +89,7 @@ function MissionCard({ mission, event, onChanged }) {
         <div className="signup-names">
           {confirmedSignups.map((s) => (
             <span className="name-chip" key={s.id}>
-              {s.first_name} {s.last_name}{unit !== 'personne(s)' ? ` (${formatQty(s.quantity || 1)} ${unit})` : ''}
+              {s.first_name} {s.last_name}{presence ? (Number(s.quantity) > 1 ? ` (+${formatQty(Number(s.quantity) - 1)})` : '') : unit !== 'personne(s)' ? ` (${formatQty(s.quantity || 1)} ${unit})` : ''}
             </span>
           ))}
         </div>
@@ -98,7 +107,7 @@ function MissionCard({ mission, event, onChanged }) {
 
       {confirmed ? (
         <div className="banner success-banner" style={{ marginTop: '0.7rem' }}>
-          ✓ Inscription confirmée !
+          {presence ? '✓ Présence enregistrée, merci !' : '✓ Inscription confirmée !'}
           <div className="actions" style={{ marginTop: '0.5rem' }}>
             {mission.date && <button className="secondary" onClick={() => downloadIcs(mission, event)}>📅 Ajouter au calendrier</button>}
             <button className="secondary" onClick={() => copyLink(confirmed.cancel_token)}>🔗 Lien pour annuler</button>
@@ -110,7 +119,7 @@ function MissionCard({ mission, event, onChanged }) {
         open ? (
           <SignupForm mission={mission} waitlistMode={false} onDone={(s) => { setOpen(false); setConfirmed(s); onChanged(); }} />
         ) : (
-          <div className="actions"><button onClick={() => setOpen(true)}>Je m'inscris</button></div>
+          <div className="actions"><button onClick={() => setOpen(true)}>{presence ? 'Je serai présent(e)' : "Je m'inscris"}</button></div>
         )
       ) : (
         open ? (
@@ -136,7 +145,9 @@ export default function EventHero({ eventId, showBack }) {
   if (error) return <p className="error">{error}</p>;
   if (!event) return <p className="muted">Chargement…</p>;
 
-  const missions = event.missions || [];
+  const allMissions = event.missions || [];
+  const missions = allMissions.filter((m) => !isPresence(m));
+  const presences = allMissions.filter(isPresence);
   const openCount = missions.filter((m) => m.remaining > 0).length;
   const peopleCount = missions.reduce((sum, m) => sum + (m.signups || []).filter((s) => !s.waitlist).length, 0);
   const categories = [...new Set(missions.map(missionCategory))];
@@ -163,7 +174,7 @@ export default function EventHero({ eventId, showBack }) {
         )}
       </div>
       <h2 className="section-title">Tâches</h2>
-      {missions.length === 0 && <p className="empty" style={{ textAlign: 'center' }}>Aucune tâche pour l'instant.</p>}
+      {allMissions.length === 0 && <p className="empty" style={{ textAlign: 'center' }}>Aucune tâche pour l'instant.</p>}
       {grouped
         ? categories.map((cat) => (
             <div key={cat}>
@@ -172,6 +183,12 @@ export default function EventHero({ eventId, showBack }) {
             </div>
           ))
         : grid(missions)}
+      {presences.length > 0 && (
+        <>
+          <h2 className="section-title">Votre présence</h2>
+          <div className="presence-list">{grid(presences)}</div>
+        </>
+      )}
     </div>
   );
 }

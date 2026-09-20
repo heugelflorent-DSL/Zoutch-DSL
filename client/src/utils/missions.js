@@ -7,8 +7,17 @@ export function formatQty(n) {
   return Number.isInteger(num) ? String(num) : num.toFixed(1).replace(/\.0$/, '');
 }
 
+export function isPresence(m) {
+  return m.kind === 'presence';
+}
+
 export function badgeLabel(m) {
   const unit = missionUnit(m);
+  if (isPresence(m)) {
+    const n = formatQty(m.taken);
+    if (m.unlimited) return `${n} personne(s) présente(s)`;
+    return m.remaining > 0 ? `${n}/${formatQty(m.slots)} présent(s)` : '✓ Complet';
+  }
   if (unit === 'personne(s)') {
     return m.remaining > 0 ? `${m.remaining} place(s) restante(s)` : '✓ Complète';
   }

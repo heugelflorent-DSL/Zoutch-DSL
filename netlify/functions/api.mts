@@ -56,7 +56,8 @@ async function missionsWithCounts(db, eventId) {
       id: s.id, first_name: s.first_name, last_name: s.last_name,
       quantity: s.quantity, waitlist: s.waitlist,
     }));
-    return { ...m, taken, remaining: Math.max(Number(m.slots) - taken, 0), signups: publicSignups };
+    const unlimited = m.kind === "presence" && Number(m.slots) === 0;
+    return { ...m, taken, unlimited, remaining: unlimited ? 999999 : Math.max(Number(m.slots) - taken, 0), signups: publicSignups };
   });
 }
 
@@ -150,9 +151,9 @@ export default async (req, context) => {
           const ms = await missionsWithCounts(db, ev.id);
           withStats.push({
             ...ev,
-            mission_count: ms.length,
-            open_count: ms.filter((m) => m.remaining > 0).length,
-            volunteer_count: new Set(ms.flatMap((m) => m.signups.filter((x) => !x.waitlist).map((x) => x.id))).size,
+            mission_count: ms.filter((m) => m.kind !== "presence").length,
+            open_count: ms.filter((m) => m.kind !== "presence" && m.remaining > 0).length,
+            volunteer_count: new Set(ms.filter((m) => m.kind !== "presence").flatMap((m) => m.signups.filter((x) => !x.waitlist).map((x) => x.id))).size,
           });
         }
         return json(withStats);
@@ -230,13 +231,16 @@ export default async (req, context) => {
       if (!auth) return err(401, "Authentification requise");
 
       if (parts.length === 1 && method === "POST") {
-        const { event_id, title, description, category, date, start_time, end_time, slots, unit } = body;
-        if (!event_id || !title || !slots) return err(400, "event_id, title et slots sont requis");
+        const { event_id, title, description, category, date, start_time, end_time, unit } = body;
+        const kind = body.kind === "presence" ? "presence" : "task";
+        const slots = Number(body.slots) || 0;
+        if (!event_id || !title) return err(400, "event_id et title sont requis");
+        if (kind === "task" && slots <= 0) return err(400, "Le nombre de places doit être supérieur à 0");
         const [event] = await db.sql`SELECT id FROM events WHERE id = ${event_id}`;
         if (!event) return err(404, "Événement introuvable");
         const [row] = await db.sql`
-          INSERT INTO missions (event_id, title, description, category, date, start_time, end_time, slots, unit)
-          VALUES (${event_id}, ${title}, ${description || null}, ${category || null}, ${date || null}, ${start_time || null}, ${end_time || null}, ${slots}, ${unit || "personne(s)"})
+          INSERT INTO missions (event_id, title, description, category, date, start_time, end_time, slots, unit, kind)
+          VALUES (${event_id}, ${title}, ${description || null}, ${category || null}, ${date || null}, ${start_time || null}, ${end_time || null}, ${slots}, ${kind === "presence" ? "personne(s)" : unit || "personne(s)"}, ${kind})
           RETURNING *
         `;
         return json(row, 201);
@@ -245,6 +249,7 @@ export default async (req, context) => {
         const [mission] = await db.sql`SELECT * FROM missions WHERE id = ${parts[1]}`;
         if (!mission) return err(404, "Tâche introuvable");
         const { title, description, category, date, start_time, end_time, slots, unit } = body;
+        if (mission.kind === "task" && slots !== undefined && Number(slots) <= 0) return err(400, "Le nombre de places doit être supérieur à 0");
         const [row] = await db.sql`
           UPDATE missions SET
             title = ${title ?? mission.title},
@@ -284,7 +289,9 @@ export default async (req, context) => {
         const [mission] = await db.sql`SELECT * FROM missions WHERE id = ${mission_id}`;
         if (!mission) return err(404, "Créneau introuvable");
         const qty = Number(quantity) || 1;
-        if (!waitlist) {
+        if (qty <= 0 || qty > 1000) return err(400, "Quantité invalide");
+        const unlimited = mission.kind === "presence" && Number(mission.slots) === 0;
+        if (!waitlist && !unlimited) {
           const confirmed = await db.sql`SELECT * FROM signups WHERE mission_id = ${mission_id} AND waitlist = FALSE`;
           const taken = confirmed.reduce((sum, s) => sum + Number(s.quantity || 1), 0);
           if (taken >= Number(mission.slots)) return err(409, "Ce créneau est complet");

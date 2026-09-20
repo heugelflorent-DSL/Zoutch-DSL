@@ -15,7 +15,9 @@ export default function MissionForm({ event, mission, onSubmit, onCancel, submit
     end_time: mission?.end_time || '',
     slots: mission?.slots ?? 1,
     unit: mission?.unit || 'personne(s)',
+    kind: mission?.kind || 'task',
   });
+  const isPresence = form.kind === 'presence';
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -24,7 +26,11 @@ export default function MissionForm({ event, mission, onSubmit, onCancel, submit
     setSaving(true);
     setError('');
     try {
-      await onSubmit({ ...form, slots: Number(form.slots) || 1 });
+      await onSubmit({
+        ...form,
+        slots: isPresence ? Number(form.slots) || 0 : Number(form.slots) || 1,
+        unit: isPresence ? 'personne(s)' : form.unit,
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -34,11 +40,25 @@ export default function MissionForm({ event, mission, onSubmit, onCancel, submit
 
   return (
     <form className="stacked-form" onSubmit={submit}>
+      {!mission && (
+        <label>
+          Type
+          <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, slots: e.target.value === 'presence' ? 0 : 1 })}>
+            <option value="task">Tâche : il me faut des bénévoles</option>
+            <option value="presence">Présence : je demande qui sera là (repas, réunion…)</option>
+          </select>
+        </label>
+      )}
       <label>
-        Titre
-        <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+        {isPresence ? 'Question posée aux bénévoles' : 'Titre'}
+        <input
+          value={form.title}
+          placeholder={isPresence ? 'ex. Serez-vous présent au repas des bénévoles du dimanche soir ?' : ''}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          required
+        />
       </label>
-      <label>
+      {!isPresence && <label>
         Catégorie (optionnel)
         <input
           list="category-suggestions"
@@ -49,7 +69,7 @@ export default function MissionForm({ event, mission, onSubmit, onCancel, submit
         <datalist id="category-suggestions">
           {CATEGORY_SUGGESTIONS.map((c) => <option key={c} value={c} />)}
         </datalist>
-      </label>
+      </label>}
       <label>
         Description
         <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -59,20 +79,31 @@ export default function MissionForm({ event, mission, onSubmit, onCancel, submit
         <TimeSelect label="Début" value={form.start_time} onChange={(v) => setForm({ ...form, start_time: v })} />
         <TimeSelect label="Fin" value={form.end_time} onChange={(v) => setForm({ ...form, end_time: v })} after={form.start_time || undefined} />
       </div>
-      <div className="two-cols">
+      {isPresence ? (
         <label>
-          Quantité visée
+          Nombre de places maximum (0 = pas de limite)
           <input
-            type="number" min="0.1" step="0.1"
+            type="number" min="0" step="1"
             value={form.slots}
             onChange={(e) => setForm({ ...form, slots: e.target.value })}
-            required
           />
         </label>
-        <UnitSelect value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} />
-      </div>
+      ) : (
+        <div className="two-cols">
+          <label>
+            Quantité visée
+            <input
+              type="number" min="0.1" step="0.1"
+              value={form.slots}
+              onChange={(e) => setForm({ ...form, slots: e.target.value })}
+              required
+            />
+          </label>
+          <UnitSelect value={form.unit} onChange={(v) => setForm({ ...form, unit: v })} />
+        </div>
+      )}
       <div className="actions">
-        <button type="submit" disabled={saving}>{saving ? 'Enregistrement…' : submitLabel}</button>
+        <button type="submit" disabled={saving}>{saving ? 'Enregistrement…' : isPresence && !mission ? 'Ajouter la question' : submitLabel}</button>
         {onCancel && <button type="button" className="secondary" onClick={onCancel}>Annuler</button>}
       </div>
       {error && <p className="error">{error}</p>}
