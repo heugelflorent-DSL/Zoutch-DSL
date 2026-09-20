@@ -278,7 +278,7 @@ export default async (req, context) => {
         // Lecture publique via le code secret d'annulation uniquement (jamais par numéro),
         // et sans renvoyer l'email.
         if (!UUID_RE.test(parts[1])) return err(404, "Inscription introuvable");
-        const [row] = await db.sql`SELECT mission_id, first_name, last_name FROM signups WHERE cancel_token = ${parts[1]}::uuid`;
+        const [row] = await db.sql`SELECT mission_id, first_name, last_name, email, quantity, waitlist FROM signups WHERE cancel_token = ${parts[1]}::uuid`;
         if (!row) return err(404, "Inscription introuvable");
         return json(row);
       }
@@ -306,12 +306,50 @@ export default async (req, context) => {
         return json(row, 201);
       }
       if (parts.length === 2 && method === "PUT") {
+        // Organisateur connecté : par numéro (ou code). Bénévole : uniquement avec son code secret.
+        const key = parts[1];
         const auth = getAuthOrganizer(req);
-        if (!auth) return err(401, "Authentification requise");
-        const { waitlist } = body;
-        const [row] = await db.sql`UPDATE signups SET waitlist = ${!!waitlist} WHERE id = ${parts[1]} RETURNING *`;
-        if (!row) return err(404, "Inscription introuvable");
-        return json(row);
+        let current;
+        if (auth && /^\d+$/.test(key)) {
+          [current] = await db.sql`SELECT * FROM signups WHERE id = ${Number(key)}`;
+        } else if (UUID_RE.test(key)) {
+          [current] = await db.sql`SELECT * FROM signups WHERE cancel_token = ${key}::uuid`;
+        } else if (!auth) {
+          return err(401, "Authentification requise");
+        }
+        if (!current) return err(404, "Inscription introuvable");
+        const isOrganizer = !!auth;
+        const [mission] = await db.sql`SELECT * FROM missions WHERE id = ${current.mission_id}`;
+
+        const first_name = typeof body.first_name === "string" ? body.first_name.trim() : current.first_name;
+        const last_name = typeof body.last_name === "string" ? body.last_name.trim() : current.last_name;
+        const email = typeof body.email === "string" ? body.email.trim() : current.email;
+        const qty = body.quantity !== undefined ? Number(body.quantity) : Number(current.quantity);
+        let waitlist = current.waitlist;
+        if (isOrganizer && body.waitlist !== undefined) waitlist = !!body.waitlist;
+
+        if (!first_name || !last_name) return err(400, "Prénom et nom requis");
+        if (!EMAIL_RE.test(email)) return err(400, "Email invalide");
+        if (!(qty > 0) || qty > 1000) return err(400, "Quantité invalide");
+
+        if (email.toLowerCase() !== String(current.email).toLowerCase()) {
+          const [dup] = await db.sql`SELECT id FROM signups WHERE mission_id = ${current.mission_id} AND lower(email) = lower(${email}) AND id <> ${current.id}`;
+          if (dup) return err(409, "Cet email est déjà inscrit sur ce créneau");
+        }
+        const unlimited = mission.kind === "presence" && Number(mission.slots) === 0;
+        if (!waitlist && !unlimited && (qty !== Number(current.quantity) || waitlist !== current.waitlist)) {
+          const others = await db.sql`SELECT quantity FROM signups WHERE mission_id = ${current.mission_id} AND waitlist = FALSE AND id <> ${current.id}`;
+          const taken = others.reduce((sum, x) => sum + Number(x.quantity || 1), 0);
+          if (taken + qty > Number(mission.slots)) {
+            return err(409, "Pas assez de places restantes pour cette quantité");
+          }
+        }
+        const [row] = await db.sql`
+          UPDATE signups SET first_name = ${first_name}, last_name = ${last_name}, email = ${email},
+            quantity = ${qty}, waitlist = ${waitlist}
+          WHERE id = ${current.id} RETURNING *
+        `;
+        return json(isOrganizer ? row : { first_name: row.first_name, last_name: row.last_name, email: row.email, quantity: row.quantity, waitlist: row.waitlist });
       }
       if (parts.length === 2 && method === "DELETE") {
         // Organisateur connecté : suppression par numéro. Public : uniquement avec le code secret du lien d'annulation.

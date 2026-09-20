@@ -66,5 +66,7 @@ export const api = {
   getSignup: (id) => request(`/signups/${id}`),
   deleteSignup: (id) => request(`/signups/${id}`, { method: 'DELETE', auth: true }),
   cancelSignupPublic: (id) => request(`/signups/${id}`, { method: 'DELETE' }),
+  updateSignupPublic: (token, data) => request(`/signups/${token}`, { method: 'PUT', body: data }),
+  updateSignup: (id, data) => request(`/signups/${id}`, { method: 'PUT', body: data, auth: true }),
   promoteSignup: (id) => request(`/signups/${id}`, { method: 'PUT', body: { waitlist: false }, auth: true }),
 };
