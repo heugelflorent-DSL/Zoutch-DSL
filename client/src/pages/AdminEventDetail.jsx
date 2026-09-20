@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import ShareBlock from '../components/ShareBlock';
 import { api } from '../api/client';
 import { formatDateRange, formatMissionWhen } from '../utils/dates';
-import { eventLink, badgeLabel, missionUnit, formatQty, missionCategory } from '../utils/missions';
+import { eventLink, isPresence, badgeLabel, missionUnit, formatQty, missionCategory } from '../utils/missions';
 import MissionForm from '../components/MissionForm';
 
 function MissionSignups({ mission, onChanged }) {
@@ -27,7 +27,7 @@ function MissionSignups({ mission, onChanged }) {
       {confirmed.length === 0 && <p className="empty">Aucun inscrit pour l'instant.</p>}
       {confirmed.map((s) => (
         <div className="signup-row" key={s.id}>
-          <span>{s.first_name} {s.last_name} — {s.email}{unit !== 'personne(s)' ? ` · ${formatQty(s.quantity || 1)} ${unit}` : ''}</span>
+          <span>{s.first_name} {s.last_name} — {s.email}{unit !== 'personne(s)' || isPresence(mission) ? ` · ${formatQty(s.quantity || 1)} ${unit}` : ''}</span>
           <button className="danger" onClick={() => remove(s.id)}>Retirer</button>
         </div>
       ))}
@@ -151,7 +151,7 @@ export default function AdminEventDetail() {
     return <PrintPlanning event={event} missions={event.missions} onClose={() => setPrintMode(false)} />;
   }
 
-  const openCount = event.missions.filter((m) => m.remaining > 0).length;
+  const openCount = event.missions.filter((m) => !isPresence(m) && m.remaining > 0).length;
   const peopleCount = event.missions.reduce((sum, m) => sum + (m.signupsFull || []).filter((s) => !s.waitlist).length, 0);
 
   return (
@@ -161,12 +161,12 @@ export default function AdminEventDetail() {
       {(event.date_start || event.date_end) && <p className="muted">{formatDateRange(event.date_start, event.date_end)}</p>}
       {event.description && <p>{event.description}</p>}
       {event.missions.length > 0 && (
-        <p className="muted">{peopleCount} bénévole(s) inscrit(s) · {openCount} tâche(s) encore ouverte(s) sur {event.missions.length}</p>
+        <p className="muted">{peopleCount} bénévole(s) inscrit(s) · {openCount} tâche(s) encore ouverte(s) sur {event.missions.filter((m) => !isPresence(m)).length}</p>
       )}
 
       <div className="actions">
         <button onClick={() => setShowMissionForm((s) => !s)}>
-          {showMissionForm ? 'Annuler' : '+ Ajouter une tâche'}
+          {showMissionForm ? 'Annuler' : '+ Ajouter une tâche / une question de présence'}
         </button>
         <button className="secondary" onClick={() => setShowShare((s) => !s)}>
           {showShare ? 'Masquer le lien' : '🔗 Partager'}

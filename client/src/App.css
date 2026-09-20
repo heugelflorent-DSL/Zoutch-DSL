@@ -233,3 +233,5 @@
   background: var(--primary); border-radius: 12px; padding: 0.7rem 1rem;
 }
 .event-tile:hover .event-cta { background: var(--primary-dark); }
+.mission-card.is-presence { border-left: 4px solid var(--accent-light); background: linear-gradient(180deg, var(--primary-tint) 0%, var(--surface) 60%); }
+.presence-list .mission-grid { grid-template-columns: 1fr; }
