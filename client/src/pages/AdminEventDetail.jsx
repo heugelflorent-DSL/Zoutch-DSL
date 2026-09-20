@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 import ShareBlock from '../components/ShareBlock';
 import { api } from '../api/client';
 import { formatDateRange, formatMissionWhen } from '../utils/dates';
-import { eventLink, isPresence, badgeLabel, missionUnit, formatQty, missionCategory } from '../utils/missions';
+import { cancelLink, eventLink, isPresence, badgeLabel, missionUnit, formatQty, missionCategory } from '../utils/missions';
 import MissionForm from '../components/MissionForm';
 
 function MissionSignups({ mission, onChanged }) {
@@ -14,8 +14,17 @@ function MissionSignups({ mission, onChanged }) {
   const hasRoom = mission.remaining > 0;
   const [error, setError] = useState('');
   const [editId, setEditId] = useState(null);
+  const [copied, setCopied] = useState(null);
   const [form, setForm] = useState(null);
 
+  async function copyLink(s) {
+    try {
+      await navigator.clipboard.writeText(cancelLink(s.cancel_token));
+      setError('');
+      setCopied(s.id);
+      setTimeout(() => setCopied(null), 2500);
+    } catch { window.prompt('Copiez ce lien :', cancelLink(s.cancel_token)); }
+  }
   function startEdit(s) {
     setEditId(s.id);
     setForm({ first_name: s.first_name, last_name: s.last_name, email: s.email, quantity: s.quantity ?? 1 });
@@ -59,6 +68,7 @@ function MissionSignups({ mission, onChanged }) {
             <>
               <span>{s.first_name} {s.last_name} — {s.email}{unit !== 'personne(s)' || isPresence(mission) ? ` · ${formatQty(s.quantity || 1)} ${unit}` : ''}</span>
               <span style={{ display: 'flex', gap: '0.4rem' }}>
+                <button className="secondary" onClick={() => copyLink(s)}>{copied === s.id ? '✓ Lien copié' : '🔗 Son lien'}</button>
                 <button className="secondary" onClick={() => startEdit(s)}>Modifier</button>
                 <button className="danger" onClick={() => remove(s.id)}>Retirer</button>
               </span>
@@ -76,6 +86,7 @@ function MissionSignups({ mission, onChanged }) {
                   <span>{s.first_name} {s.last_name} — {s.email}</span>
                   <span style={{ display: 'flex', gap: '0.4rem' }}>
                     {hasRoom && <button onClick={() => promote(s.id)}>Promouvoir</button>}
+                    <button className="secondary" onClick={() => copyLink(s)}>{copied === s.id ? '✓ Lien copié' : '🔗 Son lien'}</button>
                     <button className="secondary" onClick={() => startEdit(s)}>Modifier</button>
                     <button className="danger" onClick={() => remove(s.id)}>Retirer</button>
                   </span>

@@ -75,9 +75,36 @@ export function downloadIcs(mission, event) {
 }
 
 export function cancelLink(signupId) {
-  return `${location.origin}${location.pathname}?cancel=${signupId}`;
+  return `${location.origin}/?cancel=${signupId}`;
 }
 
 export function eventLink(eventId) {
   return `${location.origin}/evenements/${eventId}`;
+}
+
+// --- Mémoire locale des inscriptions (ce navigateur uniquement) ---
+const STORE_KEY = 'zoutch-mes-inscriptions';
+
+function readStore() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch { return {}; }
+}
+
+export function rememberSignup(missionId, token) {
+  try {
+    const all = readStore();
+    all[missionId] = token;
+    localStorage.setItem(STORE_KEY, JSON.stringify(all));
+  } catch { /* stockage indisponible : sans conséquence */ }
+}
+
+export function recallSignup(missionId) {
+  return readStore()[missionId] || null;
+}
+
+export function forgetSignup(missionId) {
+  try {
+    const all = readStore();
+    delete all[missionId];
+    localStorage.setItem(STORE_KEY, JSON.stringify(all));
+  } catch { /* ignore */ }
 }

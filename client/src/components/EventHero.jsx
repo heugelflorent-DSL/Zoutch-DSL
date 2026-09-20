@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { formatDateRange, formatMissionWhenPublic } from '../utils/dates';
-import { isPresence, badgeLabel, missionCategory, missionUnit, formatQty, downloadIcs, cancelLink } from '../utils/missions';
+import { isPresence, badgeLabel, missionCategory, missionUnit, formatQty, downloadIcs, cancelLink, rememberSignup, recallSignup, forgetSignup } from '../utils/missions';
 import logo from '../assets/logo-dauphins-sl.png';
 
 function SignupForm({ mission, waitlistMode, onDone }) {
@@ -62,8 +62,31 @@ function MissionCard({ mission, event, onChanged }) {
   const [open, setOpen] = useState(false);
   const [confirmed, setConfirmed] = useState(null);
   const [copyStatus, setCopyStatus] = useState('');
+  const [savedToken, setSavedToken] = useState(null);
   const unit = missionUnit(mission);
   const presence = isPresence(mission);
+  useEffect(() => {
+    const t = recallSignup(mission.id);
+    if (!t) { setSavedToken(null); return; }
+    api.getSignup(t).then(() => setSavedToken(t)).catch(() => { forgetSignup(mission.id); setSavedToken(null); });
+  }, [mission.id, mission.signups?.length]);
+
+  function handleDone(s) {
+    rememberSignup(mission.id, s.cancel_token);
+    setOpen(false);
+    setConfirmed(s);
+    onChanged();
+  }
+
+  async function shareLinkOut(token) {
+    const url = cancelLink(token);
+    const text = `Mon inscription « ${mission.title} » — ${event.name} : ${url}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Mon inscription', text, url }); return; } catch { /* annulé */ }
+    }
+    window.location.href = `mailto:?subject=${encodeURIComponent('Mon inscription — ' + event.name)}&body=${encodeURIComponent(text)}`;
+  }
+
   const confirmedSignups = (mission.signups || []).filter((s) => !s.waitlist);
   const waitlistSignups = (mission.signups || []).filter((s) => s.waitlist);
 
@@ -108,22 +131,36 @@ function MissionCard({ mission, event, onChanged }) {
       {confirmed ? (
         <div className="banner success-banner" style={{ marginTop: '0.7rem' }}>
           {presence ? '✓ Présence enregistrée, merci !' : '✓ Inscription confirmée !'}
+          <p style={{ margin: '0.5rem 0 0.35rem', fontSize: '0.85rem' }}>
+            <strong>Gardez ce lien</strong> : il vous permet de modifier ou d'annuler votre inscription. Ce navigateur s'en souvient aussi.
+          </p>
+          <div className="inline-form" style={{ marginTop: 0 }}>
+            <input readOnly value={cancelLink(confirmed.cancel_token)} onFocus={(e) => e.target.select()} style={{ flex: '1 1 200px' }} />
+            <button onClick={() => copyLink(confirmed.cancel_token)}>Copier</button>
+            <button className="secondary" onClick={() => shareLinkOut(confirmed.cancel_token)}>Envoyer / partager</button>
+          </div>
           <div className="actions" style={{ marginTop: '0.5rem' }}>
             {mission.date && <button className="secondary" onClick={() => downloadIcs(mission, event)}>📅 Ajouter au calendrier</button>}
-            <button className="secondary" onClick={() => copyLink(confirmed.cancel_token)}>🔗 Lien pour modifier / annuler</button>
             <button className="secondary" onClick={() => setConfirmed(null)}>Fermer</button>
           </div>
           {copyStatus && <p className="muted" style={{ margin: '0.4rem 0 0' }}>{copyStatus}</p>}
         </div>
+      ) : savedToken ? (
+        <div className="banner" style={{ marginTop: '0.7rem' }}>
+          ✓ Vous êtes inscrit(e) sur cette tâche.
+          <div className="actions" style={{ marginTop: '0.5rem' }}>
+            <a className="button-link" href={`/?cancel=${savedToken}`}>Modifier ou annuler</a>
+          </div>
+        </div>
       ) : mission.remaining > 0 ? (
         open ? (
-          <SignupForm mission={mission} waitlistMode={false} onDone={(s) => { setOpen(false); setConfirmed(s); onChanged(); }} />
+          <SignupForm mission={mission} waitlistMode={false} onDone={handleDone} />
         ) : (
           <div className="actions"><button onClick={() => setOpen(true)}>{presence ? 'Je serai présent(e)' : "Je m'inscris"}</button></div>
         )
       ) : (
         open ? (
-          <SignupForm mission={mission} waitlistMode={true} onDone={(s) => { setOpen(false); setConfirmed(s); onChanged(); }} />
+          <SignupForm mission={mission} waitlistMode={true} onDone={handleDone} />
         ) : (
           <div className="actions"><button className="secondary" onClick={() => setOpen(true)}>Rejoindre la liste d'attente</button></div>
         )
