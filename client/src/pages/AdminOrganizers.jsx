@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function AdminOrganizers() {
+  const { organizer: me } = useAuth();
   const [organizers, setOrganizers] = useState([]);
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
@@ -35,6 +37,19 @@ export default function AdminOrganizers() {
     }
   }
 
+  async function remove(o) {
+    if (!window.confirm(`Supprimer l'organisateur "${o.username}" ?`)) return;
+    setError('');
+    setSuccess('');
+    try {
+      await api.deleteOrganizer(o.id);
+      setSuccess(`Organisateur "${o.username}" supprimé.`);
+      reload();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div>
       <Link to="/admin" className="back-link">← Retour au tableau de bord</Link>
@@ -45,6 +60,9 @@ export default function AdminOrganizers() {
           <div className="admin-row" key={o.id}>
             <span>{o.username}</span>
             <span className="muted">depuis le {o.created_at}</span>
+            {me && o.id !== me.id && (
+              <button type="button" onClick={() => remove(o)}>Supprimer</button>
+            )}
           </div>
         ))}
       </div>

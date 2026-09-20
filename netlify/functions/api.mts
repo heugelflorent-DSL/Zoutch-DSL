@@ -97,6 +97,16 @@ export default async (req, context) => {
         const [row] = await db.sql`INSERT INTO organizers (username, password_hash) VALUES (${username}, ${hash}) RETURNING id, username`;
         return json(row, 201);
       }
+      if (parts[1] === "organizers" && parts[2] && method === "DELETE") {
+        const id = Number(parts[2]);
+        if (!Number.isInteger(id)) return err(400, "Identifiant invalide");
+        if (id === auth.id) return err(400, "Tu ne peux pas supprimer ton propre compte");
+        const [{ n }] = await db.sql`SELECT COUNT(*)::int AS n FROM organizers`;
+        if (n <= 1) return err(400, "Impossible de supprimer le dernier organisateur");
+        const [row] = await db.sql`DELETE FROM organizers WHERE id = ${id} RETURNING id`;
+        if (!row) return err(404, "Organisateur introuvable");
+        return json({ ok: true });
+      }
       return err(404, "Route introuvable");
     }
 
