@@ -55,10 +55,14 @@ export const api = {
   deleteEvent: (id) => request(`/events/${id}`, { method: 'DELETE', auth: true }),
 
   createMission: (payload) => request('/missions', { method: 'POST', body: payload, auth: true }),
+  getMission: (id) => request(`/missions/${id}`),
   updateMission: (id, payload) => request(`/missions/${id}`, { method: 'PUT', body: payload, auth: true }),
   deleteMission: (id) => request(`/missions/${id}`, { method: 'DELETE', auth: true }),
   missionSignups: (id) => request(`/missions/${id}/signups`, { auth: true }),
 
   signup: (payload) => request('/signups', { method: 'POST', body: payload }),
+  getSignup: (id) => request(`/signups/${id}`),
   deleteSignup: (id) => request(`/signups/${id}`, { method: 'DELETE', auth: true }),
+  cancelSignupPublic: (id) => request(`/signups/${id}`, { method: 'DELETE' }),
+  promoteSignup: (id) => request(`/signups/${id}`, { method: 'PUT', body: { waitlist: false }, auth: true }),
 };

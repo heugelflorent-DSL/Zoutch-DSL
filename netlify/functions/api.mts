@@ -48,9 +48,14 @@ async function missionsWithCounts(db, eventId) {
     SELECT * FROM signups WHERE mission_id IN (SELECT id FROM missions WHERE event_id = ${eventId})
   `;
   return missions.map((m) => {
-    const confirmed = signups.filter((s) => s.mission_id === m.id && !s.waitlist);
+    const missionSignups = signups.filter((s) => s.mission_id === m.id);
+    const confirmed = missionSignups.filter((s) => !s.waitlist);
     const taken = confirmed.reduce((sum, s) => sum + Number(s.quantity || 1), 0);
-    return { ...m, taken, remaining: Math.max(Number(m.slots) - taken, 0) };
+    const publicSignups = missionSignups.map((s) => ({
+      id: s.id, first_name: s.first_name, last_name: s.last_name,
+      quantity: s.quantity, waitlist: s.waitlist,
+    }));
+    return { ...m, taken, remaining: Math.max(Number(m.slots) - taken, 0), signups: publicSignups };
   });
 }
 
@@ -175,6 +180,11 @@ export default async (req, context) => {
 
     // ---------- MISSIONS ----------
     if (parts[0] === "missions") {
+      if (parts.length === 2 && method === "GET") {
+        const [row] = await db.sql`SELECT * FROM missions WHERE id = ${parts[1]}`;
+        if (!row) return err(404, "Tâche introuvable");
+        return json(row);
+      }
       const auth = getAuthOrganizer(req);
 
       if (parts.length === 3 && parts[2] === "signups" && method === "GET") {
@@ -227,6 +237,11 @@ export default async (req, context) => {
 
     // ---------- SIGNUPS ----------
     if (parts[0] === "signups") {
+      if (parts.length === 2 && method === "GET") {
+        const [row] = await db.sql`SELECT * FROM signups WHERE id = ${parts[1]}`;
+        if (!row) return err(404, "Inscription introuvable");
+        return json(row);
+      }
       if (parts.length === 1 && method === "POST") {
         const { mission_id, first_name, last_name, email, quantity, waitlist } = body;
         if (!mission_id || !first_name || !last_name || !email) return err(400, "Tous les champs sont requis");

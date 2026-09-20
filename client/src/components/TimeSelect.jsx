@@ -1,14 +1,15 @@
 import { useState } from 'react';
 
-const TIME_OPTIONS = [];
+const ALL_TIMES = [];
 for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 15) {
-    TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    ALL_TIMES.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
   }
 }
 
-export default function TimeSelect({ value, onChange, label }) {
-  const isCustom = value && !TIME_OPTIONS.includes(value);
+export default function TimeSelect({ value, onChange, label, after }) {
+  const options = after ? ALL_TIMES.filter((t) => t > after) : ALL_TIMES;
+  const isCustom = value && !ALL_TIMES.includes(value);
   const [customMode, setCustomMode] = useState(isCustom);
 
   function handleSelectChange(e) {
@@ -27,7 +28,7 @@ export default function TimeSelect({ value, onChange, label }) {
       {label}
       <select value={customMode ? '__custom__' : value} onChange={handleSelectChange}>
         <option value="">—</option>
-        {TIME_OPTIONS.map((t) => (
+        {options.map((t) => (
           <option key={t} value={t}>
             {t}
           </option>
