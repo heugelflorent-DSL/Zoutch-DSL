@@ -54,7 +54,7 @@ function NewEventForm({ onCreated }) {
 }
 
 export default function AdminDashboard() {
-  const { organizer, logout } = useAuth();
+  const { organizer, logout, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [error, setError] = useState('');
@@ -115,8 +115,10 @@ export default function AdminDashboard() {
           <span className="user-chip" title="Connecté">
             <span className="avatar">{(organizer?.username || '?').charAt(0).toUpperCase()}</span>
             {organizer?.username}
+            {isSuperAdmin && <span className="badge">Super admin</span>}
           </span>
-          <Link to="/admin/organisateurs" className="pill-link">👥 Organisateurs</Link>
+          {isSuperAdmin && <Link to="/admin/organisateurs" className="pill-link">👥 Organisateurs</Link>}
+          <Link to="/admin/mot-de-passe" className="pill-link">🔑 Mon mot de passe</Link>
           <button className="secondary" onClick={logout}>Se déconnecter</button>
         </div>
       </div>

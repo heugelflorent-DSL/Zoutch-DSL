@@ -15,8 +15,8 @@ export default function AdminLogin() {
     setLoading(true);
     setError('');
     try {
-      await login(form.username, form.password);
-      navigate(location.state?.from || '/admin');
+      const org = await login(form.username, form.password);
+      navigate(org.must_change_password ? '/admin/mot-de-passe' : location.state?.from || '/admin', { state: { from: location.state?.from } });
     } catch (err) {
       setError(err.message);
     } finally {

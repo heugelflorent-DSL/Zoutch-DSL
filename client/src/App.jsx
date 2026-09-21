@@ -8,6 +8,7 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminEventDetail from './pages/AdminEventDetail';
 import AdminOrganizers from './pages/AdminOrganizers';
+import ChangePassword from './pages/ChangePassword';
 import CancelSignup from './pages/CancelSignup';
 import logo from './assets/logo-dauphins-sl.png';
 import './App.css';
@@ -48,6 +49,14 @@ function Shell() {
         element={
           <RequireAuth>
             <AdminEventDetail />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/mot-de-passe"
+        element={
+          <RequireAuth>
+            <ChangePassword />
           </RequireAuth>
         }
       />

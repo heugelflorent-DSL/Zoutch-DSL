@@ -27,13 +27,19 @@ export function AuthProvider({ children }) {
     return res.organizer;
   }
 
+  async function refresh() {
+    const res = await api.me();
+    setOrganizer(res.organizer);
+    return res.organizer;
+  }
+
   function logout() {
     setToken(null);
     setOrganizer(null);
   }
 
   return (
-    <AuthContext.Provider value={{ organizer, loading, login, logout }}>
+    <AuthContext.Provider value={{ organizer, loading, login, logout, refresh, isSuperAdmin: organizer?.role === 'superadmin' }}>
       {children}
     </AuthContext.Provider>
   );

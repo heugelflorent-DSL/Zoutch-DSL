@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminOrganizers() {
-  const { organizer: me } = useAuth();
+  const { organizer: me, isSuperAdmin } = useAuth();
   const [organizers, setOrganizers] = useState([]);
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
@@ -19,7 +19,7 @@ export default function AdminOrganizers() {
       .catch((e) => setError(e.message));
   }
 
-  useEffect(reload, []);
+  useEffect(() => { if (isSuperAdmin) reload(); }, [isSuperAdmin]);
 
   async function submit(e) {
     e.preventDefault();
@@ -70,11 +70,20 @@ export default function AdminOrganizers() {
     }
   }
 
+  if (!isSuperAdmin) {
+    return (
+      <div>
+        <Link to="/admin" className="back-link">← Retour au tableau de bord</Link>
+        <p className="banner">Cette page est réservée au super admin.</p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <Link to="/admin" className="back-link">← Retour au tableau de bord</Link>
       <h1>Organisateurs</h1>
-      <p className="muted admin-sub">Les personnes qui peuvent créer et gérer les événements.</p>
+      <p className="muted admin-sub">Vous êtes super admin : vous créez les comptes des autres organisateurs avec un mot de passe provisoire, qu'ils changent à leur première connexion.</p>
 
       <div className="admin-list">
         {organizers.map((o) => (
@@ -89,7 +98,7 @@ export default function AdminOrganizers() {
                 <input
                   aria-label="Nouveau mot de passe"
                   type="text"
-                  placeholder="Nouveau mot de passe (laisser vide = inchangé)"
+                  placeholder={editing.id === me?.id ? 'Nouveau mot de passe (vide = inchangé)' : 'Nouveau mot de passe provisoire (vide = inchangé)'}
                   value={editing.password}
                   minLength={4}
                   onChange={(e) => setEditing({ ...editing, password: e.target.value })}
@@ -100,12 +109,12 @@ export default function AdminOrganizers() {
             ) : (
               <>
                 <span className="avatar">{o.username.charAt(0).toUpperCase()}</span>
-                <span className="org-name">{o.username}{me && o.id === me.id && <span className="badge">Moi</span>}</span>
+                <span className="org-name">{o.username}{me && o.id === me.id && <span className="badge">Moi</span>}{o.role === 'superadmin' && <span className="badge">Super admin</span>}{o.must_change_password && <span className="badge badge-pending">Mot de passe provisoire</span>}</span>
                 <span className="muted org-date">depuis le {new Date(o.created_at).toLocaleDateString('fr-FR')}</span>
                 <button type="button" className="secondary" onClick={() => setEditing({ id: o.id, username: o.username, password: '' })}>
                   Modifier / mot de passe
                 </button>
-                {me && o.id !== me.id && (
+                {me && o.id !== me.id && o.role !== 'superadmin' && (
                   <button type="button" className="danger" onClick={() => remove(o)}>Supprimer</button>
                 )}
               </>
@@ -116,6 +125,7 @@ export default function AdminOrganizers() {
 
       <form className="stacked-form" onSubmit={submit}>
         <h2>Ajouter un organisateur</h2>
+        <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>Donnez-lui son identifiant et un mot de passe provisoire : il devra le changer dès sa première connexion.</p>
         <label>
           Identifiant
           <input
@@ -125,9 +135,9 @@ export default function AdminOrganizers() {
           />
         </label>
         <label>
-          Mot de passe
+          Mot de passe provisoire
           <input
-            type="password"
+            type="text"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
