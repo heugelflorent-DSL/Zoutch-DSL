@@ -20,15 +20,26 @@ function signToken(organizer) {
   return jwt.sign({ id: organizer.id, username: organizer.username }, JWT_SECRET, { expiresIn: "7d" });
 }
 
-function getAuthOrganizer(req) {
+function publicOrganizer(o) {
+  return { id: o.id, username: o.username, role: o.role, must_change_password: !!o.must_change_password };
+}
+
+// Retourne l'organisateur connecté (lu en base : un compte supprimé perd aussitôt son accès).
+// Tant qu'il doit changer son mot de passe provisoire, seules les routes marquées allowPending l'acceptent.
+async function getAuth(req, db, allowPending = false) {
   const header = req.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) return null;
+  let payload;
   try {
-    return jwt.verify(token, JWT_SECRET);
+    payload = jwt.verify(token, JWT_SECRET);
   } catch {
     return null;
   }
+  const [row] = await db.sql`SELECT id, username, role, must_change_password FROM organizers WHERE id = ${payload.id}`;
+  if (!row) return null;
+  if (row.must_change_password && !allowPending) return null;
+  return row;
 }
 
 async function ensureDefaultAdmin(db) {
@@ -37,7 +48,7 @@ async function ensureDefaultAdmin(db) {
   const username = Netlify.env.get("DEFAULT_ADMIN_USER") || "admin";
   const password = Netlify.env.get("DEFAULT_ADMIN_PASSWORD") || "changeme123";
   const hash = bcrypt.hashSync(password, 10);
-  await db.sql`INSERT INTO organizers (username, password_hash) VALUES (${username}, ${hash})`;
+  await db.sql`INSERT INTO organizers (username, password_hash, role) VALUES (${username}, ${hash}, 'superadmin')`;
 }
 
 async function missionsWithCounts(db, eventId) {
@@ -82,26 +93,52 @@ export default async (req, context) => {
         const [organizer] = await db.sql`SELECT * FROM organizers WHERE username = ${username}`;
         if (!organizer) return err(401, "Identifiants incorrects");
         if (!bcrypt.compareSync(password, organizer.password_hash)) return err(401, "Identifiants incorrects");
-        return json({ token: signToken(organizer), organizer: { id: organizer.id, username: organizer.username } });
+        return json({ token: signToken(organizer), organizer: publicOrganizer(organizer) });
       }
 
-      const auth = getAuthOrganizer(req);
+      const auth = await getAuth(req, db, true);
       if (!auth) return err(401, "Authentification requise");
 
       if (parts[1] === "me" && method === "GET") {
-        return json({ organizer: auth });
+        return json({ organizer: publicOrganizer(auth) });
       }
+
+      // Changer son propre mot de passe (obligatoire à la première connexion)
+      if (parts[1] === "change-password" && method === "POST") {
+        const { current_password, new_password } = body;
+        if (!current_password || !new_password) return err(400, "Mot de passe actuel et nouveau mot de passe requis");
+        if (String(new_password).length < 6) return err(400, "Le nouveau mot de passe doit faire au moins 6 caractères");
+        if (new_password === current_password) return err(400, "Le nouveau mot de passe doit être différent du mot de passe provisoire");
+        const [row] = await db.sql`SELECT password_hash FROM organizers WHERE id = ${auth.id}`;
+        if (!row || !bcrypt.compareSync(current_password, row.password_hash)) return err(400, "Mot de passe actuel incorrect");
+        const hash = bcrypt.hashSync(String(new_password), 10);
+        await db.sql`UPDATE organizers SET password_hash = ${hash}, must_change_password = FALSE WHERE id = ${auth.id}`;
+        return json({ organizer: publicOrganizer({ ...auth, must_change_password: false }) });
+      }
+
+      // Tout le reste est réservé au super admin
+      if (parts[1] === "organizers") {
+        if (auth.must_change_password) return err(401, "Authentification requise");
+        if (auth.role !== "superadmin") return err(403, "Réservé au super admin");
+      }
+
       if (parts[1] === "organizers" && method === "GET") {
-        const rows = await db.sql`SELECT id, username, created_at FROM organizers`;
+        const rows = await db.sql`SELECT id, username, role, must_change_password, created_at FROM organizers ORDER BY (role = 'superadmin') DESC, id ASC`;
         return json(rows);
       }
       if (parts[1] === "organizers" && method === "POST") {
-        const { username, password } = body;
-        if (!username || !password) return err(400, "Identifiant et mot de passe requis");
+        const username = typeof body.username === "string" ? body.username.trim() : "";
+        const { password } = body;
+        if (!username || !password) return err(400, "Identifiant et mot de passe provisoire requis");
+        if (String(password).length < 4) return err(400, "Le mot de passe provisoire doit faire au moins 4 caractères");
         const [existing] = await db.sql`SELECT id FROM organizers WHERE username = ${username}`;
         if (existing) return err(409, "Cet identifiant existe déjà");
-        const hash = bcrypt.hashSync(password, 10);
-        const [row] = await db.sql`INSERT INTO organizers (username, password_hash) VALUES (${username}, ${hash}) RETURNING id, username`;
+        const hash = bcrypt.hashSync(String(password), 10);
+        const [row] = await db.sql`
+          INSERT INTO organizers (username, password_hash, role, must_change_password)
+          VALUES (${username}, ${hash}, 'admin', TRUE)
+          RETURNING id, username, role, must_change_password
+        `;
         return json(row, 201);
       }
       if (parts[1] === "organizers" && parts[2] && method === "PUT") {
@@ -111,7 +148,7 @@ export default async (req, context) => {
         const password = typeof body.password === "string" ? body.password : "";
         if (!username && !password) return err(400, "Rien à modifier");
         if (password && password.length < 4) return err(400, "Le mot de passe doit faire au moins 4 caractères");
-        const [current] = await db.sql`SELECT id, username FROM organizers WHERE id = ${id}`;
+        const [current] = await db.sql`SELECT id, username, role FROM organizers WHERE id = ${id}`;
         if (!current) return err(404, "Organisateur introuvable");
         if (username && username !== current.username) {
           const [dup] = await db.sql`SELECT id FROM organizers WHERE username = ${username} AND id <> ${id}`;
@@ -120,19 +157,21 @@ export default async (req, context) => {
         }
         if (password) {
           const hash = bcrypt.hashSync(password, 10);
-          await db.sql`UPDATE organizers SET password_hash = ${hash} WHERE id = ${id}`;
+          // Mot de passe réinitialisé pour quelqu'un d'autre : provisoire, à changer à sa prochaine connexion.
+          const provisional = id !== auth.id;
+          await db.sql`UPDATE organizers SET password_hash = ${hash}, must_change_password = ${provisional} WHERE id = ${id}`;
         }
-        const [row] = await db.sql`SELECT id, username, created_at FROM organizers WHERE id = ${id}`;
+        const [row] = await db.sql`SELECT id, username, role, must_change_password, created_at FROM organizers WHERE id = ${id}`;
         return json(row);
       }
       if (parts[1] === "organizers" && parts[2] && method === "DELETE") {
         const id = Number(parts[2]);
         if (!Number.isInteger(id)) return err(400, "Identifiant invalide");
         if (id === auth.id) return err(400, "Tu ne peux pas supprimer ton propre compte");
-        const [{ n }] = await db.sql`SELECT COUNT(*)::int AS n FROM organizers`;
-        if (n <= 1) return err(400, "Impossible de supprimer le dernier organisateur");
-        const [row] = await db.sql`DELETE FROM organizers WHERE id = ${id} RETURNING id`;
-        if (!row) return err(404, "Organisateur introuvable");
+        const [target] = await db.sql`SELECT role FROM organizers WHERE id = ${id}`;
+        if (!target) return err(404, "Organisateur introuvable");
+        if (target.role === "superadmin") return err(400, "Le super admin ne peut pas être supprimé");
+        await db.sql`DELETE FROM organizers WHERE id = ${id}`;
         return json({ ok: true });
       }
       return err(404, "Route introuvable");
@@ -165,7 +204,7 @@ export default async (req, context) => {
         return json({ ...event, missions });
       }
 
-      const auth = getAuthOrganizer(req);
+      const auth = await getAuth(req, db);
       if (!auth) return err(401, "Authentification requise");
 
       if (parts.length === 1 && method === "POST") {
@@ -218,7 +257,7 @@ export default async (req, context) => {
         if (!row) return err(404, "Tâche introuvable");
         return json(row);
       }
-      const auth = getAuthOrganizer(req);
+      const auth = await getAuth(req, db);
 
       if (parts.length === 3 && parts[2] === "signups" && method === "GET") {
         if (!auth) return err(401, "Authentification requise");
@@ -328,7 +367,7 @@ export default async (req, context) => {
       if (parts.length === 2 && method === "PUT") {
         // Organisateur connecté : par numéro (ou code). Bénévole : uniquement avec son code secret.
         const key = parts[1];
-        const auth = getAuthOrganizer(req);
+        const auth = await getAuth(req, db);
         let current;
         if (auth && /^\d+$/.test(key)) {
           [current] = await db.sql`SELECT * FROM signups WHERE id = ${Number(key)}`;
@@ -375,7 +414,7 @@ export default async (req, context) => {
         // Organisateur connecté : suppression par numéro. Public : uniquement avec le code secret du lien d'annulation.
         const key = parts[1];
         let row;
-        if (getAuthOrganizer(req) && /^\d+$/.test(key)) {
+        if ((await getAuth(req, db)) && /^\d+$/.test(key)) {
           [row] = await db.sql`DELETE FROM signups WHERE id = ${Number(key)} RETURNING id`;
         } else if (UUID_RE.test(key)) {
           [row] = await db.sql`DELETE FROM signups WHERE cancel_token = ${key}::uuid RETURNING id`;

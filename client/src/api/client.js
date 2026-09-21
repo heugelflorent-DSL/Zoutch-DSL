@@ -41,6 +41,8 @@ async function request(path, { method = 'GET', body, auth = false } = {}) {
 export const api = {
   login: (username, password) => request('/auth/login', { method: 'POST', body: { username, password } }),
   me: () => request('/auth/me', { auth: true }),
+  changePassword: (current_password, new_password) =>
+    request('/auth/change-password', { method: 'POST', body: { current_password, new_password }, auth: true }),
   listOrganizers: () => request('/auth/organizers', { auth: true }),
   createOrganizer: (username, password) =>
     request('/auth/organizers', { method: 'POST', body: { username, password }, auth: true }),
