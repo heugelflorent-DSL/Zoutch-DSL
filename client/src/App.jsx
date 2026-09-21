@@ -21,10 +21,10 @@ function Shell() {
     return (
       <CancelSignup
         signupId={cancelId}
-        onDone={() => {
+        onDone={(eventId) => {
           setCancelId(null);
           window.history.replaceState({}, '', `${location.origin}${location.pathname}`);
-          navigate('/');
+          navigate(eventId ? `/evenements/${eventId}` : '/');
         }}
       />
     );

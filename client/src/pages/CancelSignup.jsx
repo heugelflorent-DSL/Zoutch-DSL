@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import { formatMissionWhen } from '../utils/dates';
 import { forgetSignup } from '../utils/missions';
 
-function SignupEntry({ entry, highlighted, onRemoved }) {
+function SignupEntry({ entry, highlighted, onRemoved, onOpenEvent }) {
   const presence = entry.kind === 'presence';
   const unit = entry.unit || 'personne(s)';
   const showQty = presence || unit !== 'personne(s)';
@@ -45,10 +45,11 @@ function SignupEntry({ entry, highlighted, onRemoved }) {
         <h3>{entry.title}</h3>
         <span className="badge">{waitlist ? "Liste d'attente" : showQty ? `${qty} ${unit === 'personne(s)' ? 'pers.' : unit}` : 'Inscrit(e)'}</span>
       </div>
-      <p className="muted" style={{ margin: '0.2rem 0 0' }}>{entry.event_name}{when ? ` · ${when}` : ''}</p>
-      <div className="actions">
-        <button className="secondary" onClick={() => setOpen((o) => !o)}>{open ? 'Fermer' : 'Modifier'}</button>
-        <button className="danger" onClick={cancel}>Annuler cette inscription</button>
+      <p className="entry-meta"><span className="date-pill">{entry.event_name}</span>{when && <span className="muted">🕐 {when}</span>}</p>
+      <div className="entry-actions">
+        <button className="btn-sm secondary" onClick={() => setOpen((o) => !o)}>{open ? 'Fermer' : '✏️ Modifier'}</button>
+        <button className="btn-sm link-danger" onClick={cancel}>Annuler</button>
+        <button className="btn-link" onClick={() => onOpenEvent(entry.event_id)}>Voir l'événement →</button>
       </div>
       {open && (
         <form className="stacked-form" onSubmit={save} style={{ margin: '0.75rem 0 0', maxWidth: 'none' }}>
@@ -75,9 +76,15 @@ export default function CancelSignup({ signupId, onDone }) {
   const [entries, setEntries] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [removedAll, setRemovedAll] = useState(false);
+  const [lastEvent, setLastEvent] = useState(null); // { id, name } du dernier événement concerné
 
   useEffect(() => {
-    api.getMySignups(signupId).then(setEntries).catch(() => setNotFound(true));
+    api.getMySignups(signupId)
+      .then((list) => {
+        setEntries(list);
+        if (list[0]) setLastEvent({ id: list[0].event_id, name: list[0].event_name }); // événement du lien
+      })
+      .catch(() => setNotFound(true));
   }, [signupId]);
 
   function removed(token) {
@@ -94,7 +101,7 @@ export default function CancelSignup({ signupId, onDone }) {
         <h1>Inscription introuvable</h1>
         <p className="muted">Ce lien n'est plus valide, ou l'inscription a déjà été annulée.</p>
         <div className="actions" style={{ justifyContent: 'center', marginTop: '1rem' }}>
-          <button onClick={onDone}>Retour à l'accueil</button>
+          <button onClick={() => onDone()}>Retour à l'accueil</button>
         </div>
       </div>
     );
@@ -106,7 +113,8 @@ export default function CancelSignup({ signupId, onDone }) {
         <h1>Inscription annulée</h1>
         <p className="muted">C'est fait, merci de nous avoir prévenu.</p>
         <div className="actions" style={{ justifyContent: 'center', marginTop: '1rem' }}>
-          <button onClick={onDone}>Retour à l'accueil</button>
+          {lastEvent && <button onClick={() => onDone(lastEvent.id)}>← Retour à « {lastEvent.name} »</button>}
+          <button className={lastEvent ? 'secondary' : ''} onClick={() => onDone()}>Tous les événements</button>
         </div>
       </div>
     );
@@ -117,23 +125,20 @@ export default function CancelSignup({ signupId, onDone }) {
   const [first, ...others] = entries;
   return (
     <div>
-      <div className="hero-header">
-        <h1>Mes inscriptions</h1>
-        <p className="muted" style={{ margin: 0 }}>{first.first_name} {first.last_name}</p>
-      </div>
-      <h2 className="section-title">Inscription de ce lien</h2>
-      <SignupEntry key={first.cancel_token} entry={first} highlighted onRemoved={removed} />
+      <button className="back-link back-btn" onClick={() => onDone(first.event_id)}>← Retour à « {first.event_name} »</button>
+      <h1 className="page-title">Mes inscriptions</h1>
+      <p className="muted" style={{ margin: '0 0 0.5rem' }}>{first.first_name} {first.last_name}</p>
+      <h2 className="section-h">Inscription de ce lien</h2>
+      <SignupEntry key={first.cancel_token} entry={first} highlighted onRemoved={removed} onOpenEvent={onDone} />
       {others.length > 0 && (
         <>
-          <h2 className="section-title">Vos autres inscriptions</h2>
+          <h2 className="section-h">Vos autres inscriptions <span className="count">{others.length}</span></h2>
           <div className="mission-grid presence-list">
-            {others.map((e) => <SignupEntry key={e.cancel_token} entry={e} onRemoved={removed} />)}
+            {others.map((e) => <SignupEntry key={e.cancel_token} entry={e} onRemoved={removed} onOpenEvent={onDone} />)}
           </div>
         </>
       )}
-      <div className="actions" style={{ justifyContent: 'center', marginTop: '1.5rem' }}>
-        <button className="secondary" onClick={onDone}>Retour à l'accueil</button>
-      </div>
+      <p className="page-foot"><button className="btn-link" onClick={() => onDone()}>Voir tous les événements</button></p>
     </div>
   );
 }
