@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminLogin() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,7 +16,7 @@ export default function AdminLogin() {
     setError('');
     try {
       await login(form.username, form.password);
-      navigate('/admin');
+      navigate(location.state?.from || '/admin');
     } catch (err) {
       setError(err.message);
     } finally {

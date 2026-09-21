@@ -141,6 +141,9 @@ function MissionCard({ mission, event, onChanged }) {
           </div>
           <div className="actions" style={{ marginTop: '0.5rem' }}>
             {mission.date && <button className="secondary" onClick={() => downloadIcs(mission, event)}>📅 Ajouter au calendrier</button>}
+            <button onClick={() => { setConfirmed(null); document.getElementById('taches')?.scrollIntoView({ behavior: 'smooth' }); }}>
+              S'inscrire à une autre tâche
+            </button>
             <button className="secondary" onClick={() => setConfirmed(null)}>Fermer</button>
           </div>
           {copyStatus && <p className="muted" style={{ margin: '0.4rem 0 0' }}>{copyStatus}</p>}
@@ -210,7 +213,7 @@ export default function EventHero({ eventId, showBack }) {
           </p>
         )}
       </div>
-      <h2 className="section-title">Tâches</h2>
+      <h2 className="section-title" id="taches">Tâches</h2>
       {allMissions.length === 0 && <p className="empty" style={{ textAlign: 'center' }}>Aucune tâche pour l'instant.</p>}
       {grouped
         ? categories.map((cat) => (
